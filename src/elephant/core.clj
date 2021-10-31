@@ -6,11 +6,6 @@
   (:import [com.googlecode.lanterna.terminal DefaultTerminalFactory TerminalResizeListener]
            [com.googlecode.lanterna.screen TerminalScreen]))
 
-(defn ^:private ticker [channel]
-  (go (while true
-        (Thread/sleep 1000)
-        (>! channel {:type :ticked}))))
-
 (defn ^:private input-reader [channel screen]
   (go (while true
         (>! channel {:type :input-read
@@ -34,7 +29,6 @@
         (.addResizeListener (.getTerminal screen) resize-listener)
         (.onResized resize-listener nil (.getTerminalSize screen))
         (input-reader event-channel screen)
-        (ticker event-channel)
         (r/render! screen initial-state)
         (go (>! event-channel {:type :initialized}))
         (loop [state initial-state]
