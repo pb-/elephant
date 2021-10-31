@@ -69,7 +69,7 @@
           (.putString text-graphics 1 6 (format "%s on %d | comment /%s | %d children"
                                                 (:by item) (:time item) (s/join \/ (:path state))
                                                 (count (:kids item))))
-          (.putString text-graphics 1 7 "H:root  h:parent  j:next-sibling  k:prev-sibiling  l:first-child")
+          (.putString text-graphics 1 7 "H:root  h:parent  j:next-sibling  k:prev-sibling  l:first-child")
           (doseq [[line i] (map vector
                                 (mapcat
                                   (partial reflow (- (:width state) 2))
