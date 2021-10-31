@@ -36,6 +36,7 @@
         (input-reader event-channel screen)
         (ticker event-channel)
         (r/render! screen initial-state)
+        (go (>! event-channel {:type :initialized}))
         (loop [state initial-state]
           (let [event (<!! event-channel)
                 [new-state commands] (s/update-state state event)]

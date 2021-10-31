@@ -1,5 +1,7 @@
 (ns elephant.render
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s]
+            [clojure.pprint :as pp]
+            [elephant.state :as st]))
 
 (defn ^:private unescape [text]
   (s/replace
@@ -23,21 +25,29 @@
         (subs text 0 i)
         (lazy-seq (reflow max-width (subs text p)))))))
 
+(defn debug [text-graphics state]
+  (doseq [[line i] (map vector (s/split-lines (with-out-str (pp/pprint state))) (range))]
+    (.putString text-graphics 0 i line)))
+
 (defn render! [screen state]
   (.doResizeIfNecessary screen)
   (let [text-graphics (.newTextGraphics screen)]
     (.clear screen)
-    (.putString text-graphics 1 1 (str (:ticks state)))
-    (.putString text-graphics 1 2 (str (:width state)))
-    (.putString text-graphics 1 3 (str (:height state)))
-    #_(when-let [item (and (:current-item state) ((:items state) (:current-item state)))]
-        (doseq [[line i] (map vector
-                              (mapcat
-                                (partial reflow (dec (:width state)))
-                                (interpose "" (parse (:text item))))
-                              (drop 4 (range)))]
-          (when (< i (dec (:height state)))
-            (.putString text-graphics 1 i line))))
+    (if (:debug? state)
+      (debug text-graphics state)
+      (do
+        (.putString text-graphics 1 1 (str (:ticks state)))
+        (.putString text-graphics 1 2 (str (:width state)))
+        (.putString text-graphics 1 3 (str (:height state)))
+        (.putString text-graphics 1 4 (str (count (:items state))))
+        (when-let [item (st/current-item state)]
+          (doseq [[line i] (map vector
+                                (mapcat
+                                  (partial reflow (dec (:width state)))
+                                  (interpose "" (parse (:text item))))
+                                (drop 4 (range)))]
+            (when (< i (dec (:height state)))
+              (.putString text-graphics 1 i line))))))
     (.refresh screen)))
 
 (comment
