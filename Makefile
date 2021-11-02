@@ -3,5 +3,5 @@ develop:
 .PHONY: develop
 
 run:
-	clojure -M -m elephant.core
+	clojure -J-Dcom.googlecode.lanterna.terminal.UnixTerminal.sttyCommand=$(shell which stty) -M -m elephant.core
 .PHONY: run
