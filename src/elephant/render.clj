@@ -2,10 +2,14 @@
   (:require [clojure.string :as s]
             [clojure.pprint :as pp]
             [elephant.state :as st])
-  (:import [com.googlecode.lanterna TextColor$ANSI]))
+  (:import [com.googlecode.lanterna TextColor$ANSI SGR]))
 
 (def ^:private colors
-  {:lightblue TextColor$ANSI/BLUE_BRIGHT})
+  {:lightred TextColor$ANSI/RED_BRIGHT
+   :lightblue TextColor$ANSI/BLUE_BRIGHT})
+
+(def ^:private modifiers
+  {:bold SGR/BOLD})
 
 (defn ^:private unescape [text]
   (s/replace
@@ -33,20 +37,26 @@
   (doseq [[line i] (map vector (s/split-lines (with-out-str (pp/pprint state))) (range))]
     (.putString text-graphics 0 i line)))
 
-#_(defn ^:private put-str! [text-graphics column row & elements]
-    (let [old-color (.getForegroundColor text-graphics)]
-      (loop [elems elements
-             pos column]
-        (when (seq elems)
-          (let [element (first elems)
-                s (str (if (vector? element) (second element) element))
-                color (if (vector? element)
-                        (colors (first element) TextColor$ANSI/DEFAULT)
-                        old-color)]
-            (.setForegroundColor text-graphics color)
-            (.putString text-graphics pos row s)
+(defn ^:private put-str! [text-graphics column row & elements]
+  (loop [elems elements
+         pos column]
+    (if-let [element (first elems)]
+      (if (vector? element)
+        (let [old-color (.getForegroundColor text-graphics)
+              old-mods (.getActiveModifiers text-graphics)
+              cmd (first element)]
+          (when (modifiers cmd)
+            (.enableModifiers text-graphics (into-array SGR [(modifiers cmd)])))
+          (when (colors cmd)
+            (.setForegroundColor text-graphics (colors cmd)))
+          (let [p (apply put-str! text-graphics pos row (rest element))]
             (.setForegroundColor text-graphics old-color)
-            (recur (rest elems) (+ pos (count s))))))))
+            (.setModifiers text-graphics old-mods)
+            (recur (rest elems) p)))
+        (do
+          (.putString text-graphics pos row element)
+          (recur (rest elems) (+ pos (count element)))))
+      pos)))
 
 (defn render! [screen state]
   (.doResizeIfNecessary screen)
