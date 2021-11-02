@@ -6,6 +6,8 @@
 
 (def ^:private colors
   {:lightred TextColor$ANSI/RED_BRIGHT
+   :white TextColor$ANSI/WHITE
+   :lightwhite TextColor$ANSI/WHITE_BRIGHT
    :lightblue TextColor$ANSI/BLUE_BRIGHT})
 
 (def ^:private modifiers
@@ -58,6 +60,9 @@
           (recur (rest elems) (+ pos (count element)))))
       pos)))
 
+(defn ^:private key-hint [key-seq hint]
+  [:nop [:bold [:lightblue key-seq]] ":" [:white hint]])
+
 (defn render! [screen state]
   (.doResizeIfNecessary screen)
   (let [text-graphics (.newTextGraphics screen)
@@ -71,7 +76,11 @@
         (.putString text-graphics 0 0 "Elephant 0.0.1")
         (when-let [story-item ((:items state) (:current-story-id state))]
           (.putString text-graphics 1 2 (:title story-item))
-          (.putString text-graphics 1 3 (str (:url story-item) "  o:open-link  p:print-link"))
+          (put-str! text-graphics 1 3
+                    (:url story-item) "  "
+                    (key-hint "o" "open-link") "  "
+                    (key-hint "p" "print-link"))
+          #_(.putString text-graphics 1 3 (str (:url story-item) "  o:open-link  p:print-link"))
           (.putString text-graphics 1 4 (format "%d points by %s on %d | %d comments"
                                                 (:score story-item) (:by story-item)
                                                 (:time story-item) (:descendants story-item))))
@@ -79,7 +88,12 @@
           (.putString text-graphics 1 6 (format "%s on %d | comment /%s | %d children"
                                                 (:by item) (:time item) (s/join \/ (:path state))
                                                 (count (:kids item))))
-          (.putString text-graphics 1 7 "H:root  h:parent  j:next-sibling  k:prev-sibling  l:first-child")
+          (put-str! text-graphics 1 7
+                    (key-hint "H" "root") "  "
+                    (key-hint "h" "parent") "  "
+                    (key-hint "j" "next-sibling") "  "
+                    (key-hint "k" "prev-sibling") "  "
+                    (key-hint "l" "first-child"))
           (doseq [[line i] (map vector
                                 (mapcat
                                   (partial reflow (- (:width state) 2))
@@ -87,7 +101,7 @@
                                 (drop 9 (range)))]
             (when (< i (- height 2))
               (.putString text-graphics 1 i line))))
-        (.putString text-graphics 0 (dec height) "q:quit"))))
+        (put-str! text-graphics 0 (dec height) (key-hint "q" "quit")))))
   (.refresh screen))
 
 
