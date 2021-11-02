@@ -21,7 +21,7 @@
 
 (defn ^:private reflow [max-width text]
   (if (<= (count text) max-width)
-    (cons text nil)  ;; is this the right way to create a one-element seq?!
+    (list text)
     (let [i (or (s/last-index-of text \space max-width) max-width)
           space? (= \space (.charAt text i))
           p (if space? (inc i) i)]
