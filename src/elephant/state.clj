@@ -59,4 +59,6 @@
   (case (:character event)
     \q [state [{:type :exit}]]
     \d [(update state :debug? not) []]
+    \D [state [{:type :dump-state
+                :state state}]]
     [state []]))

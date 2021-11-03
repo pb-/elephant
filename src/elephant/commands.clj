@@ -1,5 +1,6 @@
 (ns elephant.commands
-  (:require [clojure.data.json :as json]
+  (:require [clojure.pprint :as pp]
+            [clojure.data.json :as json]
             [clj-http.client :as client]))
 
 (defmulti execute-command!
@@ -17,3 +18,8 @@
     :context (:context command)
     :data (json/read-str (:body (client/get (:url command)))
                          :key-fn keyword)}])
+
+(defmethod execute-command! :dump-state [command]
+  (spit "/tmp/elephant-state-dump.edn"
+        (with-out-str (pp/pprint (:state command))))
+  [])
