@@ -17,19 +17,26 @@
 (defmethod update-state :default [state event]
   [state []])
 
+(defn lookup-item-id [state path]
+  (loop [id (:current-story-id state)
+         p path]
+    (if (seq p)
+      (recur (get (:kids ((:items state) id)) (first p)) (rest p))
+      id)))
+
+(defn lookup-item [state path]
+  ((:items state) (lookup-item-id state path)))
+
 (defn current-item-id [state]
-  (loop [item ((:items state) (:current-story-id state))
-         path (:path state)]
-    (if-not (and item path)
-      nil
-      (let [item-id (nth (:kids item) (first path))
-            rest-path (rest path)]
-        (if (empty? rest-path)
-          item-id
-          (recur ((:items state) item-id) rest-path))))))
+  (lookup-item-id state (:path state)))
 
 (defn current-item [state]
-  ((:items state) (current-item-id state)))
+  (lookup-item state (:path state)))
+
+(defn current-parent [state]
+  (if (= 1 (count (:path state)))
+    ((:items state) (:current-story-id state))
+    ((:items state) (pop (:path state)))))
 
 (defmethod update-state :initialized [state event]
   [(assoc state
