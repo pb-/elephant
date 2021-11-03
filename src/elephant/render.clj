@@ -2,11 +2,15 @@
   (:require [clojure.string :as s]
             [clojure.pprint :as pp]
             [elephant.state :as st])
-  (:import [com.googlecode.lanterna TextColor$ANSI SGR]))
+  (:import [com.googlecode.lanterna TextColor$ANSI SGR]
+           [java.time Instant ZoneId]
+           [java.time.format DateTimeFormatter]
+           [java.net URL]))
 
 (def ^:private colors
   {:lightred TextColor$ANSI/RED_BRIGHT
    :white TextColor$ANSI/WHITE
+   :lightblack TextColor$ANSI/BLACK_BRIGHT
    :lightwhite TextColor$ANSI/WHITE_BRIGHT
    :lightblue TextColor$ANSI/BLUE_BRIGHT})
 
@@ -63,6 +67,20 @@
 (defn ^:private key-hint [key-seq hint]
   [:nop [:bold [:lightblue key-seq]] ":" [:white hint]])
 
+
+(defn ^:private shorten-url [url]
+  (as-> (URL. url) $
+      (.getHost $)
+      (s/split $ #"\.")
+      (take-last 2 $)
+      (s/join "." $)))
+
+(defn ^:private format-time [epoch-sec]
+  (.format
+    (.atZone (Instant/ofEpochSecond epoch-sec)
+             (ZoneId/systemDefault))
+    DateTimeFormatter/RFC_1123_DATE_TIME))
+
 (defn render! [screen state]
   (.doResizeIfNecessary screen)
   (let [text-graphics (.newTextGraphics screen)
@@ -73,20 +91,22 @@
     (if (:debug? state)
       (debug! text-graphics state)
       (do
-        (.putString text-graphics 0 0 "Elephant 0.0.1")
+        (.putString text-graphics 0 0 "Elephant 0.0.2")
         (when-let [story-item ((:items state) (:current-story-id state))]
-          (.putString text-graphics 1 2 (:title story-item))
+          (put-str! text-graphics 1 2 [:bold (:title story-item)])
           (put-str! text-graphics 1 3
-                    (:url story-item) "  "
+                    [:lightblack (shorten-url (:url story-item))] "  "
                     (key-hint "o" "open-link") "  "
                     (key-hint "p" "print-link"))
           #_(.putString text-graphics 1 3 (str (:url story-item) "  o:open-link  p:print-link"))
-          (.putString text-graphics 1 4 (format "%d points by %s on %d | %d comments"
+          (.putString text-graphics 1 4 (format "%d points by %s on %s | %d comments"
                                                 (:score story-item) (:by story-item)
-                                                (:time story-item) (:descendants story-item))))
+                                                (format-time (:time story-item))
+                                                (:descendants story-item))))
         (when-let [item (st/current-item state)]
-          (.putString text-graphics 1 6 (format "%s on %d | comment /%s | %d children"
-                                                (:by item) (:time item) (s/join \/ (:path state))
+          (.putString text-graphics 1 6 (format "%s on %s | comment /%s | %d children"
+                                                (:by item) (format-time (:time item))
+                                                (s/join \/ (:path state))
                                                 (count (:kids item))))
           (put-str! text-graphics 1 7
                     (key-hint "H" "root") "  "
