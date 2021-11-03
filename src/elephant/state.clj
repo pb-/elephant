@@ -34,9 +34,25 @@
   (lookup-item state (:path state)))
 
 (defn current-parent [state]
-  (if (= 1 (count (:path state)))
-    ((:items state) (:current-story-id state))
-    ((:items state) (pop (:path state)))))
+  (lookup-item state (pop (:path state))))
+
+(defn prev-sibling-id [state]
+  (let [parent (current-parent state)
+        index (last (:path state))]
+    (get (:kids parent) (dec index))))
+
+(defn next-sibling-id [state]
+  (let [parent (current-parent state)
+        index (last (:path state))]
+    (get (:kids parent) (inc index))))
+
+(defn first-child-id [state]
+  (get (:kids (current-item state)) 0))
+
+#_(defn current-parent [state]
+    (if (= 1 (count (:path state)))
+      ((:items state) (:current-story-id state))
+      ((:items state) (pop (:path state)))))
 
 (defmethod update-state :initialized [state event]
   [(assoc state
@@ -62,10 +78,48 @@
 (defmethod update-state :ticked [state event]
   [(update state :ticks inc) []])
 
+(defn get-unless-cached [state id]
+  (if ((:items state) id)
+    []
+    [{:type :http-get
+       :context :item
+       :url (format "https://hacker-news.firebaseio.com/v0/item/%d.json" id)}]))
+
+(defmethod update-state :root [state event]
+  [(assoc state :path [(first (:path state))]) []])
+
+(defmethod update-state :parent [state event]
+  (if (> (count (:path state)) 1)
+    [(update state :path pop) []]
+    [state []]))
+
+(defmethod update-state :prev-sibling [state event]
+  (if-let [id (prev-sibling-id state)]
+    [(update-in state [:path (dec (count (:path state)))] dec)
+     (get-unless-cached state id)]
+    [state []]))
+
+(defmethod update-state :next-sibling [state event]
+  (if-let [id (next-sibling-id state)]
+    [(update-in state [:path (dec (count (:path state)))] inc)
+     (get-unless-cached state id)]
+    [state []]))
+
+(defmethod update-state :first-child [state event]
+  (if-let [id (first-child-id state)]
+    [(update state :path conj 0)
+     (get-unless-cached state id)]
+    [state []]))
+
 (defmethod update-state :input-read [state event]
   (case (:character event)
     \q [state [{:type :exit}]]
     \d [(update state :debug? not) []]
     \D [state [{:type :dump-state
                 :state state}]]
+    \H (update-state state {:type :root})
+    \h (update-state state {:type :parent})
+    \k (update-state state {:type :prev-sibling})
+    \j (update-state state {:type :next-sibling})
+    \l (update-state state {:type :first-child})
     [state []]))
