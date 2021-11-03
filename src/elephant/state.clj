@@ -49,11 +49,6 @@
 (defn first-child-id [state]
   (get (:kids (current-item state)) 0))
 
-#_(defn current-parent [state]
-    (if (= 1 (count (:path state)))
-      ((:items state) (:current-story-id state))
-      ((:items state) (pop (:path state)))))
-
 (defmethod update-state :initialized [state event]
   [(assoc state
           :current-story-id 8863
