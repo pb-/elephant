@@ -2,7 +2,7 @@
 
 (defn initial []
   {:ticks 1
-   :view :item
+   :view :best
    :items {}})
 
 (defmulti update-state
@@ -55,20 +55,30 @@
           :current-story-id 8863
           :path [0])
    [{:type :http-get
-     :context :item
-     :url "https://hacker-news.firebaseio.com/v0/item/8863.json"}]])
+     :context :best
+     :url "https://hacker-news.firebaseio.com/v0/beststories.json"}
+    #_{:type :http-get
+       :context :item
+       :url "https://hacker-news.firebaseio.com/v0/item/8863.json"}]])
 
 (defmethod update-state :responded [state event]
-  (if (= :item (:context event))
-    (let [item (:data event)
-          s (assoc-in state [:items (:id item)] item)
-          current-id (current-item-id s)
-          commands (if-not ((:items s) current-id)
-                     [{:type :http-get
-                       :context :item
-                       :url (format "https://hacker-news.firebaseio.com/v0/item/%d.json" current-id)}]
-                     [])]
-      [s commands])
+  (case (:context event)
+    :item (let [item (:data event)
+                s (assoc-in state [:items (:id item)] item)
+                current-id (current-item-id s)
+                commands [] #_(if-not ((:items s) current-id)
+                           [{:type :http-get
+                             :context :item
+                             :url (format "https://hacker-news.firebaseio.com/v0/item/%d.json" current-id)}]
+                           [])]
+            [s commands])
+    :best (let [ids (into [] (take 5 (:data event)))]
+            [(assoc state :best-ids ids)
+             (for [id ids
+                   :when (nil? ((:items state) id))]
+               {:type :http-get
+                :context :item
+                :url (format "https://hacker-news.firebaseio.com/v0/item/%d.json" id)})])
     [state []]))
 
 (defmethod update-state :ticked [state event]

@@ -5,7 +5,8 @@
   (:import [com.googlecode.lanterna TextColor$ANSI SGR]
            [java.time Instant ZoneId]
            [java.time.format DateTimeFormatter]
-           [java.net URL]))
+           [java.net URL]
+           [java.util Random]))
 
 (def ^:private colors
   {:lightred TextColor$ANSI/RED_BRIGHT
@@ -61,8 +62,8 @@
             (.setModifiers text-graphics old-mods)
             (recur (rest elems) p)))
         (do
-          (.putString text-graphics pos row element)
-          (recur (rest elems) (+ pos (count element)))))
+          (.putString text-graphics pos row (str element))
+          (recur (rest elems) (+ pos (count (str element))))))
       pos)))
 
 (defn ^:private key-hint [key-seq hint]
@@ -112,7 +113,24 @@
       (when (< i (- (:height state) 2))
         (.putString text-graphics 1 i line)))))
 
-(defn best! [screen state])
+(defn phrase [random]
+  (s/join \space (repeatedly (+ 3 (.nextInt random 5))
+                             #(s/join (repeat (+ 2 (.nextInt random 6)) \#)))))
+
+(defn index! [text-graphics ids state]
+  (doseq [i (range (min 5 (bit-shift-right (- (:height state) 4) 1)))]
+    (let [random (Random. i)
+          item ((:items state) (get (state ids) i))]
+      (put-str! text-graphics 1 (+ 2 (* 2 i))
+                (format "%2d. " (inc i))
+                (if item
+                  [:bold (:title item)]
+                  [:lightblack (phrase random)]))
+      (put-str! text-graphics 7 (+ 3 (* 2 i))
+                (if item
+                  [:nop (:score item) " points by " (:by item) " on "
+                   (format-time (:time item)) " | " (:descendants item) " comments"]
+                  [:lightblack (phrase random)])))))
 
 (defn render! [screen state]
   (when (and (:width state) (:height state))
@@ -123,7 +141,7 @@
       (case (if (:debug? state) :debug (:view state))
         :debug (debug! text-graphics state)
         :item (item! text-graphics state)
-        (best! [text-graphics state]))
+        (index! text-graphics :best-ids state))
       (put-str! text-graphics 0 (dec (:height state)) (key-hint "q" "quit")))
     (.refresh screen)))
 
