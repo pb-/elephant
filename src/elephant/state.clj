@@ -2,6 +2,7 @@
 
 (defn initial []
   {:ticks 1
+   :view :item
    :items {}})
 
 (defmulti update-state

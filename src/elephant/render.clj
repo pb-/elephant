@@ -40,7 +40,8 @@
         (lazy-seq (reflow max-width (subs text p)))))))
 
 (defn ^:private debug! [text-graphics state]
-  (doseq [[line i] (map vector (s/split-lines (with-out-str (pp/pprint state))) (range))]
+  (doseq [[line i] (map vector (s/split-lines (with-out-str (pp/pprint state)))
+                        (range 1 (dec (:height state))))]
     (.putString text-graphics 0 i line)))
 
 (defn ^:private put-str! [text-graphics column row & elements]
@@ -81,49 +82,50 @@
              (ZoneId/systemDefault))
     DateTimeFormatter/RFC_1123_DATE_TIME))
 
-(defn render! [screen state]
-  (.doResizeIfNecessary screen)
-  (let [text-graphics (.newTextGraphics screen)
-        size (.getTerminalSize screen)
-        width (.getColumns size)
-        height (.getRows size)]
-    (.clear screen)
-    (if (:debug? state)
-      (debug! text-graphics state)
-      (do
-        (.putString text-graphics 0 0 "Elephant 0.0.2")
-        (when-let [story-item ((:items state) (:current-story-id state))]
-          (put-str! text-graphics 1 2 [:bold (:title story-item)])
-          (put-str! text-graphics 1 3
-                    [:lightblack (shorten-url (:url story-item))] "  "
-                    (key-hint "o" "open-link") "  "
-                    (key-hint "p" "print-link"))
-          #_(.putString text-graphics 1 3 (str (:url story-item) "  o:open-link  p:print-link"))
-          (.putString text-graphics 1 4 (format "%d points by %s on %s | %d comments"
-                                                (:score story-item) (:by story-item)
-                                                (format-time (:time story-item))
-                                                (:descendants story-item))))
-        (when-let [item (st/current-item state)]
-          (.putString text-graphics 1 6 (format "%s on %s | comment /%s | %d children"
-                                                (:by item) (format-time (:time item))
-                                                (s/join \/ (:path state))
-                                                (count (:kids item))))
-          (put-str! text-graphics 1 7
-                    (key-hint "H" "root") "  "
-                    (key-hint "h" "parent") "  "
-                    (key-hint "j" "next-sibling") "  "
-                    (key-hint "k" "prev-sibling") "  "
-                    (key-hint "l" "first-child"))
-          (doseq [[line i] (map vector
-                                (mapcat
-                                  (partial reflow (- (:width state) 2))
-                                  (interpose "" (parse (:text item))))
-                                (drop 9 (range)))]
-            (when (< i (- height 2))
-              (.putString text-graphics 1 i line))))
-        (put-str! text-graphics 0 (dec height) (key-hint "q" "quit")))))
-  (.refresh screen))
+(defn item! [text-graphics state]
+  (when-let [story-item ((:items state) (:current-story-id state))]
+    (put-str! text-graphics 1 2 [:bold (:title story-item)])
+    (put-str! text-graphics 1 3
+              [:lightblack (shorten-url (:url story-item))] "  "
+              (key-hint "o" "open-link") "  "
+              (key-hint "p" "print-link"))
+    (.putString text-graphics 1 4 (format "%d points by %s on %s | %d comments"
+                                          (:score story-item) (:by story-item)
+                                          (format-time (:time story-item))
+                                          (:descendants story-item))))
+  (when-let [item (st/current-item state)]
+    (.putString text-graphics 1 6 (format "%s on %s | comment /%s | %d children"
+                                          (:by item) (format-time (:time item))
+                                          (s/join \/ (:path state))
+                                          (count (:kids item))))
+    (put-str! text-graphics 1 7
+              (key-hint "H" "root") "  "
+              (key-hint "h" "parent") "  "
+              (key-hint "j" "next-sibling") "  "
+              (key-hint "k" "prev-sibling") "  "
+              (key-hint "l" "first-child"))
+    (doseq [[line i] (map vector
+                          (mapcat
+                            (partial reflow (- (:width state) 2))
+                            (interpose "" (parse (:text item))))
+                          (drop 9 (range)))]
+      (when (< i (- (:height state) 2))
+        (.putString text-graphics 1 i line)))))
 
+(defn best! [screen state])
+
+(defn render! [screen state]
+  (when (and (:width state) (:height state))
+    (.doResizeIfNecessary screen)
+    (.clear screen)
+    (let [text-graphics (.newTextGraphics screen)]
+      (.putString text-graphics 0 0 "Elephant 0.0.2")
+      (case (if (:debug? state) :debug (:view state))
+        :debug (debug! text-graphics state)
+        :item (item! text-graphics state)
+        (best! [text-graphics state]))
+      (put-str! text-graphics 0 (dec (:height state)) (key-hint "q" "quit")))
+    (.refresh screen)))
 
 (comment
   (reflow 5 "hello")
