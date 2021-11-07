@@ -125,18 +125,21 @@
                              #(s/join (repeat (+ 2 (.nextInt random 6)) \#)))))
 
 (defn index! [text-graphics ids state]
-  (doseq [i (range (min 5 (bit-shift-right (- (:height state) 4) 1)))]
+  (doseq [i (range (min 10 (bit-shift-right (- (:height state) 4) 1)))]
     (let [random (Random. i)
-          item ((:items state) (get (state ids) i))]
+          item ((:items state) (get (state ids) i))
+          link-keyseq (st/inverse-index-keymap (* 2 i))
+          comment-keyseq (st/inverse-index-keymap (inc (* 2 i)))]
       (put-str! text-graphics 1 (+ 2 (* 2 i))
                 (format "%2d. " (inc i))
                 (if item
-                  [:bold (:title item)]
+                  [:nop [:bold (:title item)] \space #_[:bold [:lightblue link-keyseq]]]
                   [:lightblack (phrase random)]))
       (put-str! text-graphics 7 (+ 3 (* 2 i))
                 (if item
                   [:nop (:score item) " points by " (:by item) " on "
-                   (format-time (:time item)) " | " (:descendants item) " comments"]
+                   (format-time (:time item)) " | " (:descendants item) " comments "
+                   [:bold [:lightblue comment-keyseq]]]
                   [:lightblack (phrase random)])))))
 
 (defn render! [screen state]
@@ -144,12 +147,13 @@
     (.doResizeIfNecessary screen)
     (.clear screen)
     (let [text-graphics (.newTextGraphics screen)]
-      (.putString text-graphics 0 0 "Elephant 0.0.2")
+      (.putString text-graphics 0 0 "Elephant 0.0.3")
       (case (if (:debug? state) :debug (:view state))
         :debug (debug! text-graphics state)
         :item (item! text-graphics state)
         (index! text-graphics :best-ids state))
-      (put-str! text-graphics 0 (dec (:height state)) (key-hint "q" "quit")))
+      (put-str! text-graphics 0 (dec (:height state)) (key-hint "q" "quit"))
+      (put-str! text-graphics (- (:width state) 2) (dec (:height state)) (:input-prefix state)))
     (.refresh screen)))
 
 (comment
