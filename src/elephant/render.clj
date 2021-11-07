@@ -23,12 +23,19 @@
     text
     #"&([^;]*);"
     (fn [[_ entity]]
-      (if (.startsWith entity "#x")
-        (str (char (Integer/parseInt (subs entity 2) 16)))
-        (str \& entity \;)))))
+      (cond
+        (.startsWith entity "#x") (str (char (Integer/parseInt (subs entity 2) 16)))
+        (= entity "quot") "\""
+        (= entity "gt") ">"
+        (= entity "lt") "<"
+        (= entity "amp") "&"
+        :else (str \& entity \;)))))
+
+(defn ^:private strip-tags [text]
+  (s/replace text #"<[^>]*>" ""))
 
 (defn ^:private parse [text]
-  (map unescape (s/split text #"<p>")))
+  (map (comp unescape strip-tags) (s/split text #"<p>")))
 
 (defn ^:private reflow [max-width text]
   (if (<= (count text) max-width)
