@@ -121,7 +121,7 @@
         (.putString text-graphics 1 i line)))))
 
 (defn phrase [random]
-  (s/join \space (repeatedly (+ 3 (.nextInt random 5))
+  (s/join \space (repeatedly (+ 5 (.nextInt random 7))
                              #(s/join (repeat (+ 2 (.nextInt random 6)) \#)))))
 
 (defn index! [text-graphics ids state]
@@ -137,9 +137,10 @@
                   [:lightblack (phrase random)]))
       (put-str! text-graphics 7 (+ 3 (* 2 i))
                 (if item
-                  [:nop (:score item) " points by " (:by item) " on "
-                   (format-time (:time item)) " | " (:descendants item) " comments "
-                   [:bold [:lightblue comment-keyseq]]]
+                  [:nop (:descendants item) " comments " [:bold [:lightblue comment-keyseq]]
+                   " | " (:score item) " points by " (:by item) " on "
+                   (format-time (:time item))
+                   ]
                   [:lightblack (phrase random)])))))
 
 (defn render! [screen state]
