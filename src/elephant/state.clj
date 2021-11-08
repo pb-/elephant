@@ -156,13 +156,18 @@
                 \j (update-state state {:type :next-sibling})
                 \l (update-state state {:type :first-child})
                 \b [(assoc state :view :best) []]
+                \o [state [{:type :open-link
+                            :url (:url ((:items state) (:current-story-id state)))}]]
                 [state []])
         :best (if-let [i (lookup index-keymap (str (:input-prefix state) c))]
                 (if (number? i)
                   (let [story-id (get (:best-ids state) (bit-shift-right i 1))
                         s (assoc state :input-prefix "")]
-                    (update-state s {:type :switch-story
-                                     :story-id story-id}))
+                    (if (odd? i)
+                      (update-state s {:type :switch-story
+                                       :story-id story-id})
+                      [s [{:type :open-link
+                               :url (:url ((:items state) story-id))}]]))
                   [(update state :input-prefix str c) []])
                 [(assoc state :input-prefix "") []])
         [state []]))))

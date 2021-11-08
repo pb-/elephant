@@ -1,6 +1,7 @@
 (ns elephant.commands
   (:require [clojure.pprint :as pp]
             [clojure.data.json :as json]
+            [clojure.java.shell :refer [sh]]
             [clj-http.client :as client]))
 
 (defmulti execute-command!
@@ -22,4 +23,9 @@
 (defmethod execute-command! :dump-state [command]
   (spit "/tmp/elephant-state-dump.edn"
         (with-out-str (pp/pprint (:state command))))
+  [])
+
+(defmethod execute-command! :open-link [command]
+  (future
+    (sh "xdg-open" (:url command)))
   [])

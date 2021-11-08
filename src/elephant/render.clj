@@ -133,7 +133,7 @@
       (put-str! text-graphics 1 (+ 2 (* 2 i))
                 (format "%2d. " (inc i))
                 (if item
-                  [:nop [:bold (:title item)] \space #_[:bold [:lightblue link-keyseq]]]
+                  [:nop [:bold (:title item)] \space [:bold [:lightblue link-keyseq]]]
                   [:lightblack (phrase random)]))
       (put-str! text-graphics 7 (+ 3 (* 2 i))
                 (if item
