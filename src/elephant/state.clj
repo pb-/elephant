@@ -5,34 +5,12 @@
    :items {}
    :input-prefix ""})
 
-(def ^:private index-keymap
-  {\a 0, \s 1, \d 2, \f 3, \g 4
-   \h {\a 5, \s 6, \d 7, \f 8, \g 9, \h 10, \j 11, \k 12, \l 13}
-   \j {\a 14, \s 15, \d 16, \f 17, \g 18, \h 19, \j 20, \k 21, \l 22}
-   \k {\a 23, \s 24, \d 25, \f 26, \g 27, \h 28, \j 29, \k 30, \l 31}
-   \l {\a 32, \s 33, \d 34, \f 35, \g 36, \h 37, \j 38, \k 39}})
-
-(defn ^:private inverse-keymap
-  ([keymap]
-   (into {} (inverse-keymap keymap "")))
-  ([keymap prefix]
-   (mapcat
-     (fn [[k v]]
-       (let [key-seq (str prefix k)]
-         (if (number? v)
-           (list [v key-seq])
-           (inverse-keymap v key-seq))))
-     keymap)))
-
-(def inverse-index-keymap (inverse-keymap index-keymap))
-
-(defn lookup [keymap prefix]
-  (let [v (keymap (first prefix))
-        tail (rest prefix)]
-    (when v
-      (if (empty? tail)
-        v
-        (recur v tail)))))
+(def index-keyseq
+  ["a" "s" "d" "f" "g"
+   "ha" "hs" "hd" "hf" "hg" "hh" "hj" "hk" "hl"
+   "ja" "js" "jd" "jf" "jg" "jh" "jj" "jk" "jl"
+   "ka" "ks" "kd" "kf" "kg" "kh" "kj" "kk" "kl"
+   "la" "ls" "ld" "lf" "lg" "lh" "lj" "lk"])
 
 (defmulti update-state
   "Apply event to state and return a vector of new state and collection of commands."
@@ -106,27 +84,27 @@
        :context :item
        :url (format "https://hacker-news.firebaseio.com/v0/item/%d.json" id)}]))
 
-(defmethod update-state :root [state event]
+(defmethod update-state :root-navigated [state event]
   [(assoc state :path [(first (:path state))]) []])
 
-(defmethod update-state :parent [state event]
+(defmethod update-state :parent-navigated [state event]
   (if (> (count (:path state)) 1)
     [(update state :path pop) []]
     [state []]))
 
-(defmethod update-state :prev-sibling [state event]
+(defmethod update-state :prev-sibling-navigated [state event]
   (if-let [id (prev-sibling-id state)]
     [(update-in state [:path (dec (count (:path state)))] dec)
      (get-unless-cached state id)]
     [state []]))
 
-(defmethod update-state :next-sibling [state event]
+(defmethod update-state :next-sibling-navigated [state event]
   (if-let [id (next-sibling-id state)]
     [(update-in state [:path (dec (count (:path state)))] inc)
      (get-unless-cached state id)]
     [state []]))
 
-(defmethod update-state :first-child [state event]
+(defmethod update-state :first-child-navigated [state event]
   (if-let [id (first-child-id state)]
     [(update state :path conj 0)
      (get-unless-cached state id)]
@@ -141,33 +119,66 @@
      (get-unless-cached
        state (first (:kids ((:items state) story-id))))]))
 
+(defmethod update-state :exit-requested [state event]
+  [state [{:type :exit}]])
+
+(defmethod update-state :debug-toggled [state event]
+  [(update state :debug? not) []])
+
+(defmethod update-state :state-dumped [state event]
+  [state [{:type :dump-state
+           :state state}]])
+
+(defmethod update-state :index-navigated [state event]
+  [(assoc state :view :best) []])
+
+(defmethod update-state :link-opened [state event]
+  [state [{:type :open-link
+           :url (:url ((:items state) (:current-story-id state)))}]])
+
+(defmethod update-state :story-link-opened [state event]
+  [state [{:type :open-link
+           :url (:url ((:items state) (get (:best-ids state) (:index event))))}]])
+
+(defmethod update-state :story-opened [state event]
+  (update-state state {:type :switch-story
+                       :story-id (get (:best-ids state) (:index event))}))
+
+(def ^:private generic-keys
+  {\q :exit-requested
+   \e :debug-toggled
+   \D :state-dumped})
+
+(def ^:private story-keys
+  {\H :root-navigated
+   \h :parent-navigated
+   \k :prev-sibling-navigated
+   \j :next-sibling-navigated
+   \l :first-child-navigated
+   \b :index-navigated
+   \o :link-opened})
+
+(def ^:private index-keys
+  (reduce
+    (fn [m [i keyseq]]
+      (assoc-in m (seq keyseq)
+                {:type (if (even? i) :story-link-opened :story-opened)
+                 :index (bit-shift-right i 1)}))
+    {}
+    (map-indexed vector index-keyseq)))
+
 (defmethod update-state :input-read [state event]
-  (let [c (:character event)]
-    (case c
-      \q [state [{:type :exit}]]
-      \d [(update state :debug? not) []]
-      \D [state [{:type :dump-state
-                  :state state}]]
-      (case (:view state)
-        :item (case c
-                \H (update-state state {:type :root})
-                \h (update-state state {:type :parent})
-                \k (update-state state {:type :prev-sibling})
-                \j (update-state state {:type :next-sibling})
-                \l (update-state state {:type :first-child})
-                \b [(assoc state :view :best) []]
-                \o [state [{:type :open-link
-                            :url (:url ((:items state) (:current-story-id state)))}]]
-                [state []])
-        :best (if-let [i (lookup index-keymap (str (:input-prefix state) c))]
-                (if (number? i)
-                  (let [story-id (get (:best-ids state) (bit-shift-right i 1))
-                        s (assoc state :input-prefix "")]
-                    (if (odd? i)
-                      (update-state s {:type :switch-story
-                                       :story-id story-id})
-                      [s [{:type :open-link
-                               :url (:url ((:items state) story-id))}]]))
-                  [(update state :input-prefix str c) []])
-                [(assoc state :input-prefix "") []])
-        [state []]))))
+  (let [current-keys (merge generic-keys (if (= (:view state) :best) index-keys story-keys))
+        character (:character event)
+        full-input (str (:input-prefix state) character)
+        state-input-reset (assoc state :input-prefix "")]
+    (loop [input full-input
+           keymap current-keys]
+      (if (empty? input)
+        [(assoc state :input-prefix full-input)]
+        (let [node (keymap (first input))]
+          (cond
+            (nil? node) [state-input-reset []]
+            (keyword? node) (update-state state-input-reset {:type node})
+            (char? (ffirst node)) (recur (rest input) node)
+            :else (update-state state-input-reset node)))))))

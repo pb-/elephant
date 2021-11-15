@@ -128,8 +128,8 @@
   (doseq [i (range (min 10 (bit-shift-right (- (:height state) 4) 1)))]
     (let [random (Random. i)
           item ((:items state) (get (state ids) i))
-          link-keyseq (st/inverse-index-keymap (* 2 i))
-          comment-keyseq (st/inverse-index-keymap (inc (* 2 i)))]
+          link-keyseq (st/index-keyseq (* 2 i))
+          comment-keyseq (st/index-keyseq (inc (* 2 i)))]
       (put-str! text-graphics 1 (+ 2 (* 2 i))
                 (format "%2d. " (inc i))
                 (if item
